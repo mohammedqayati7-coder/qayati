@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>القياتي للملابس | دفتر حسابات المحل</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#f8f4ee; --card:#ffffff; --ink:#0f2a26; --muted:#5b6b68;
+  --teal:#0f766e; --teal-d:#0b544e; --navy:#0b2540; --amber:#d97706;
+  --line:#e3e9e7; --danger:#b91c1c; --ok:#15803d;
+  --brand-1:#8a5a35; --brand-2:#6b4226; --brand-3:#c79665;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  box-sizing:border-box;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1512; --card:#132420; --ink:#eaf3f1; --muted:#93a7a3; --line:#1f3733;
+    --brand-3:#d8ae83;
+  }
+}
+:root[data-theme="dark"]{ --bg:#0d1512; --card:#132420; --ink:#eaf3f1; --muted:#93a7a3; --line:#1f3733; --brand-3:#d8ae83; }
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;font-family:'Cairo',sans-serif;background:var(--bg);color:var(--ink);min-height:100%;position:relative;}
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background-image:var(--bg-watermark,none);background-repeat:no-repeat;background-position:center 42%;background-size:min(720px,88vw) auto;}
+.wrap{max-width:1000px;margin:0 auto;padding:16px 14px 60px;position:relative;z-index:1}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 0 10px;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:5}
+header h1{font-size:20px;margin:0;color:var(--teal-d)}
+nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:14px;border-bottom:2px solid var(--line)}
+nav button{flex:0 0 auto;background:none;border:none;padding:10px 14px;font-family:inherit;font-weight:700;font-size:14px;color:var(--muted);cursor:pointer;border-radius:10px 10px 0 0;white-space:nowrap}
+nav button.active{color:var(--teal-d);background:var(--card);box-shadow:0 -2px 0 var(--teal) inset}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.stat b{display:block;font-size:22px;color:var(--teal-d)}
+.stat span{color:var(--muted);font-size:13px}
+.stat.warn b{color:var(--amber)}
+.stat.danger b{color:var(--danger)}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(160px,100%),1fr));gap:10px;align-items:end}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+input,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:14px;background:var(--bg);color:var(--ink)}
+button.btn{background:var(--teal);color:#fff;border:none;padding:10px 16px;border-radius:9px;font-family:inherit;font-weight:700;cursor:pointer;font-size:14px}
+button.btn.secondary{background:var(--navy)}
+button.btn.ghost{background:none;border:1px solid var(--line);color:var(--ink)}
+button.btn:active{opacity:.85}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 6px;text-align:right;border-bottom:1px solid var(--line)}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -2px;padding:0 2px}
+.tablewrap table{min-width:560px}
+@media (max-width:480px){
+  .wrap{padding:12px 10px 50px}
+  header{flex-wrap:wrap;row-gap:10px}
+  .brand-badge{width:38px;height:38px;font-size:16px}
+  .brand-name{font-size:16px}
+  h2{font-size:15px}
+  .stat b{font-size:19px}
+  nav button{padding:9px 11px;font-size:13px}
+}
+th{color:var(--muted);font-weight:700}
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
+.tag.pos{background:#fee2e2;color:var(--danger)}
+.tag.neg{background:#dcfce7;color:var(--ok)}
+.tag.zero{background:#e2e8f0;color:var(--muted)}
+.rowline{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.small{font-size:12px;color:var(--muted)}
+h2{font-size:16px;margin:0 0 12px;color:var(--teal-d)}
+.emptystate{text-align:center;color:var(--muted);padding:30px 10px}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+.modal{background:var(--card);border-radius:14px;padding:20px;max-width:380px;width:100%}
+.gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.gate .card{max-width:360px;width:100%;text-align:center}
+.brandmark{display:flex;align-items:center;gap:10px}
+.brand-badge{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--brand-1),var(--brand-2));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:19px;flex:0 0 auto;box-shadow:0 2px 8px rgba(107,66,38,.28)}
+.brand-text{text-align:right}
+.brand-name{font-size:18px;font-weight:800;line-height:1.25;background:linear-gradient(90deg,var(--brand-2),var(--brand-3));-webkit-background-clip:text;background-clip:text;color:var(--brand-2)}
+@supports (-webkit-background-clip:text) or (background-clip:text){
+  .brand-name{-webkit-text-fill-color:transparent;color:transparent}
+}
+.brand-sub{font-size:11px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div id="gate" class="gate">
+  <div class="card">
+    <div class="brandmark" style="justify-content:center;margin-bottom:16px;">
+      <div class="brand-badge">ق</div>
+      <div class="brand-text">
+        <div class="brand-name">القياتي للملابس</div>
+        <div class="brand-sub">دفتر حسابات المحل 🔐</div>
+      </div>
+    </div>
+    <p class="small">حدد كلمة مرور بسيطة لفتح الدفتر على هذا الجهاز (حماية أولية فقط). لو ربطت الدفتر بحساب سحابي، نفس كلمة المرور هتجيبلك نفس بياناتك على أي جهاز.</p>
+    <input id="pwInput" type="password" placeholder="كلمة المرور">
+    <br><br>
+    <button id="unlockBtn" class="btn" onclick="tryUnlock()" style="width:100%">دخول</button>
+    <p id="gateMsg" class="small" style="color:var(--danger)"></p>
+    <p class="small" style="margin-top:6px;"><a href="#" onclick="configureCloud();return false;" style="color:var(--teal-d);">⚙️ إعدادات المزامنة السحابية (اعملها مرة واحدة على كل جهاز)</a></p>
+  </div>
+</div>
+
+<div class="wrap" id="app" style="display:none">
+<header>
+  <div class="brandmark">
+    <div class="brand-badge">ق</div>
+    <div class="brand-text">
+      <div class="brand-name">القياتي للملابس</div>
+      <div class="brand-sub">دفتر حسابات المحل</div>
+    </div>
+  </div>
+  <button class="btn ghost" onclick="lock()">قفل 🔒</button>
+</header>
+<nav id="tabs"></nav>
+<div id="content"></div>
+</div>
+
+<div id="modalRoot"></div>
+
+<script>
+(function setBrandWatermark(){
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
+    <circle cx="400" cy="400" r="380" fill="none" stroke="#8a5a35" stroke-width="1.5" opacity="0.09"/>
+    <circle cx="400" cy="400" r="300" fill="none" stroke="#6b4226" stroke-width="2" opacity="0.10"/>
+    <text x="400" y="420" font-family="Tahoma, Arial, sans-serif" font-size="80" font-weight="bold" fill="#6b4226" opacity="0.10" text-anchor="middle" transform="rotate(-20 400 400)">القياتي للملابس</text>
+  </svg>`;
+  const uri="url('data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg)+"')";
+  document.documentElement.style.setProperty('--bg-watermark', uri);
+})();
+
+let state={purchases:[],sales:[],payments:[],returns:[]};
+let tab='dash';
+
+// ---------- lightweight non-cryptographic hash (cyrb53) — turns the password into a cloud row id ----------
+function simpleHash(str){
+  let h1=0xdeadbeef^0, h2=0x41c6ce57^0;
+  for(let i=0;i<str.length;i++){
+    const ch=str.charCodeAt(i);
+    h1=Math.imul(h1^ch,2654435761); h2=Math.imul(h2^ch,1597334677);
+  }
+  h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);
+  h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);
+  return (4294967296*(2097151&h2)+(h1>>>0)).toString(36);
+}
+function acctIdFor(pw){ return 'acct_'+simpleHash('qayati-shop-v1:'+pw); }
+
+// ---------- cloud sync (Supabase) — optional, configured per device ----------
+function sbConfigured(){ return !!(localStorage.getItem('sb_url')&&localStorage.getItem('sb_key')); }
+function getSbClient(){
+  if(typeof supabase==='undefined') return null;
+  const url=localStorage.getItem('sb_url'), key=localStorage.getItem('sb_key');
+  if(!url||!key) return null;
+  const cacheKey=url+'|'+key;
+  if(!window._sbClient||window._sbClientKey!==cacheKey){
+    try{ window._sbClient=supabase.createClient(url,key); window._sbClientKey=cacheKey; }
+    catch(e){ return null; }
+  }
+  return window._sbClient;
+}
+async function cloudFetchRow(rowId){
+  const sb=getSbClient(); if(!sb) return {data:null,error:null};
+  const {data,error}=await sb.from('shop_state').select('data').eq('id',rowId).maybeSingle();
+  if(error) return {data:null,error};
+  return {data: data?data.data:null, error:null};
+}
+async function cloudPushRow(rowId,payload){
+  const sb=getSbClient(); if(!sb) return;
+  const {error}=await sb.from('shop_state').upsert({id:rowId,data:payload,updated_at:new Date().toISOString()});
+  if(error) console.error('cloud push error',error);
+}
+let _pushTimer=null;
+function pushCloudDebounced(){
+  if(!sbConfigured()) return;
+  const rowId=localStorage.getItem('acct_id');
+  if(!rowId) return;
+  clearTimeout(_pushTimer);
+  _pushTimer=setTimeout(()=>{ cloudPushRow(rowId, state).catch(e=>console.error(e)); }, 800);
+}
+function configureCloud(){
+  const curUrl=localStorage.getItem('sb_url')||'';
+  const curKey=localStorage.getItem('sb_key')||'';
+  const url=prompt('الصق رابط مشروع Supabase (Project URL):', curUrl);
+  if(url===null) return;
+  const key=prompt('الصق مفتاح anon public API key بتاع نفس المشروع:', curKey);
+  if(key===null) return;
+  if(!url.trim()||!key.trim()){ alert('لازم تدخل الرابط والمفتاح مع بعض.'); return; }
+  localStorage.setItem('sb_url', url.trim());
+  localStorage.setItem('sb_key', key.trim());
+  window._sbClient=null;
+  const pw=getPw();
+  if(pw){
+    const rowId=acctIdFor(pw);
+    localStorage.setItem('acct_id', rowId);
+    cloudPushRow(rowId, state)
+      .then(()=>alert('تم حفظ إعدادات السحابة، وتم رفع بيانات هذا الجهاز بنجاح ✅'))
+      .catch(()=>alert('اتحفظت الإعدادات لكن حصل خطأ أثناء رفع البيانات — تأكد من صحة الرابط والمفتاح ومن إنك عملت الجدول shop_state.'));
+  } else {
+    alert('تم حفظ إعدادات السحابة على هذا الجهاز. دلوقتي ادخل بنفس كلمة المرور اللي بتستخدمها في باقي الأجهزة.');
+  }
+  if(typeof render==='function' && document.getElementById('content')) render();
+}
+function disconnectCloud(){
+  if(!confirm('هيتوقف ربط السحابة على هذا الجهاز بس (بياناتك المرفوعة في السحابة هتفضل موجودة زي ما هي). متأكد؟')) return;
+  localStorage.removeItem('sb_url'); localStorage.removeItem('sb_key'); localStorage.removeItem('acct_id');
+  window._sbClient=null;
+  render();
+}
+
+// ---------- password gate (also resolves the cloud account on unlock) ----------
+function getPw(){return localStorage.getItem('shop_pw')||''}
+async function tryUnlock(){
+  const v=document.getElementById('pwInput').value;
+  const saved=getPw();
+  const msgEl=document.getElementById('gateMsg'); msgEl.textContent='';
+  if(saved){
+    if(v!==saved){ msgEl.textContent='كلمة مرور غلط'; return; }
+  } else if(!v){
+    msgEl.textContent='اكتب كلمة مرور جديدة أول مرة';
+    return;
+  }
+  const btn=document.getElementById('unlockBtn');
+  if(btn){ btn.disabled=true; btn.textContent='جاري الدخول...'; }
+  if(sbConfigured()){
+    try{
+      const rowId=acctIdFor(v);
+      const {data,error}=await cloudFetchRow(rowId);
+      if(error){
+        msgEl.textContent='تعذر الاتصال بالسحابة، هيفتح الدفتر بالبيانات المحلية المتاحة على هذا الجهاز.';
+      } else if(data){
+        state=normalizeState(data);
+      } else {
+        await cloudPushRow(rowId, state);
+      }
+      localStorage.setItem('acct_id', rowId);
+    }catch(e){
+      msgEl.textContent='تعذر الاتصال بالسحابة، هيفتح الدفتر بالبيانات المحلية المتاحة على هذا الجهاز.';
+    }
+  }
+  localStorage.setItem('shop_pw', v);
+  try{ localStorage.setItem('shop_state', JSON.stringify(state)); }catch(e){}
+  if(btn){ btn.disabled=false; btn.textContent='دخول'; }
+  openApp();
+}
+function lock(){ document.getElementById('app').style.display='none'; document.getElementById('gate').style.display='flex'; document.getElementById('pwInput').value=''; }
+function openApp(){ document.getElementById('gate').style.display='none'; document.getElementById('app').style.display='block'; render(); }
+
+// ---------- persistence ----------
+function normalizeState(s){
+  s=s||{};
+  return {
+    purchases:Array.isArray(s.purchases)?s.purchases:[],
+    sales:Array.isArray(s.sales)?s.sales:[],
+    payments:Array.isArray(s.payments)?s.payments:[],
+    returns:Array.isArray(s.returns)?s.returns:[]
+  };
+}
+async function initStorage(){
+  try{ const raw=localStorage.getItem('shop_state'); if(raw) state=JSON.parse(raw); }catch(e){}
+  state=normalizeState(state);
+}
+function save(){
+  try{ localStorage.setItem('shop_state', JSON.stringify(state)); }catch(e){}
+  pushCloudDebounced();
+  render();
+}
+function resetAllData(){
+  if(!confirm('هيتم مسح كل المشتريات والمبيعات والدفعات نهائيًا من هذا الجهاز (ومن السحابة لو متصل). متأكد؟')) return;
+  const typed=prompt('اكتب كلمة "مسح" بالظبط للتأكيد النهائي:');
+  if(typed!=='مسح'){ alert('اتلغت العملية، مفيش حاجة اتمسحت.'); return; }
+  state={purchases:[],sales:[],payments:[],returns:[]};
+  save();
+  alert('تم مسح كل البيانات.');
+}
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function today(){ return new Date().toISOString().slice(0,10); }
+function fmt(n){ return (Math.round(n*100)/100).toLocaleString('ar-EG'); }
+
+// ---------- derived data ----------
+function itemsCatalog(){
+  const m={};
+  state.purchases.forEach(p=>{
+    if(!m[p.item]) m[p.item]={boughtQty:0,totalCost:0};
+    m[p.item].boughtQty+=p.qty; m[p.item].totalCost+=p.total;
+  });
+  state.sales.forEach(s=>{ if(m[s.item]) m[s.item].boughtQty-=s.qty; });
+  state.returns.forEach(r=>{
+    if(!m[r.item]) m[r.item]={boughtQty:0,totalCost:0};
+    if(r.type==='sale') m[r.item].boughtQty+=r.qty; // العميل رجّع بضاعة => ترجع للمخزون
+    else m[r.item].boughtQty-=r.qty; // إحنا رجّعنا للمورد => تقل من المخزون
+  });
+  return Object.entries(m).map(([name,v])=>({name,remainingQty:v.boughtQty}));
+}
+function avgBuyPrice(itemName){
+  const rows=state.purchases.filter(p=>p.item===itemName);
+  const qty=rows.reduce((a,r)=>a+r.qty,0), cost=rows.reduce((a,r)=>a+r.total,0);
+  return qty? cost/qty : 0;
+}
+function partyBalance(name,role){ // role: 'supplier' -> we owe them | 'customer' -> they owe us
+  if(role==='supplier'){
+    const bought=state.purchases.filter(p=>p.supplier===name).reduce((a,p)=>a+p.total,0);
+    const paidOut=state.payments.filter(p=>p.party===name&&p.direction==='out').reduce((a,p)=>a+p.amount,0);
+    const returned=state.returns.filter(r=>r.type==='purchase'&&r.party===name).reduce((a,r)=>a+r.total,0);
+    return bought-paidOut-returned;
+  } else {
+    const sold=state.sales.filter(s=>s.customer===name).reduce((a,s)=>a+s.total,0);
+    const paidIn=state.payments.filter(p=>p.party===name&&p.direction==='in').reduce((a,p)=>a+p.amount,0);
+    const returned=state.returns.filter(r=>r.type==='sale'&&r.party===name).reduce((a,r)=>a+r.total,0);
+    return sold-paidIn-returned;
+  }
+}
+function allParties(){
+  const supNames=new Set([...state.purchases.map(p=>p.supplier), ...state.returns.filter(r=>r.type==='purchase').map(r=>r.party)]);
+  const cusNames=new Set([...state.sales.map(s=>s.customer), ...state.returns.filter(r=>r.type==='sale').map(r=>r.party)]);
+  const sup=[...supNames].map(n=>({name:n,role:'supplier',balance:partyBalance(n,'supplier')}));
+  const cus=[...cusNames].map(n=>({name:n,role:'customer',balance:partyBalance(n,'customer')}));
+  return [...sup,...cus];
+}
+function totals(){
+  const totalPurchases=state.purchases.reduce((a,p)=>a+p.total,0) - state.returns.filter(r=>r.type==='purchase').reduce((a,r)=>a+r.total,0);
+  const totalSales=state.sales.reduce((a,s)=>a+s.total,0) - state.returns.filter(r=>r.type==='sale').reduce((a,r)=>a+r.total,0);
+  const totalProfit=state.sales.reduce((a,s)=>a+s.profit,0) - state.returns.filter(r=>r.type==='sale').reduce((a,r)=>a+(r.profit||0),0);
+  const receivable=allParties().filter(p=>p.role==='customer'&&p.balance>0).reduce((a,p)=>a+p.balance,0);
+  const payable=allParties().filter(p=>p.role==='supplier'&&p.balance>0).reduce((a,p)=>a+p.balance,0);
+  return {totalPurchases,totalSales,totalProfit,receivable,payable};
+}
+
+// ---------- actions ----------
+function addPurchase(e){
+  e.preventDefault(); const f=e.target;
+  const qty=+f.qty.value, price=+f.price.value;
+  const item=f.item.value.trim(), supplier=f.supplier.value.trim();
+  if(!item||!supplier){ alert('لازم تكتب اسم الصنف والمورد'); return; }
+  if(!(qty>0)){ alert('الكمية لازم تكون رقم أكبر من صفر'); return; }
+  if(!(price>=0)){ alert('السعر لازم يكون صفر أو أكبر'); return; }
+  const total=qty*price;
+  const paid=f.fullyPaid&&f.fullyPaid.checked ? total : (+f.paid.value||0);
+  if(paid<0){ alert('المدفوع لازم يكون صفر أو أكبر'); return; }
+  if(paid>total){ if(!confirm(`المبلغ المدفوع (${fmt(paid)}) أكبر من إجمالي عملية الشراء (${fmt(total)}). متأكد؟`)) return; }
+  const pid=uid();
+  state.purchases.push({id:pid,date:today(),item,qty,buyPrice:price,total,supplier});
+  if(paid>0) state.payments.push({id:uid(),date:today(),party:supplier,direction:'out',amount:paid,note:'دفعة عند الشراء',sourceId:pid});
+  save();
+}
+function addSale(e){
+  e.preventDefault(); const f=e.target;
+  const qty=+f.qty.value, price=+f.price.value;
+  const item=f.item.value.trim(), customer=f.customer.value.trim();
+  if(!item||!customer){ alert('لازم تكتب اسم الصنف والعميل'); return; }
+  if(!(qty>0)){ alert('الكمية لازم تكون رقم أكبر من صفر'); return; }
+  if(!(price>=0)){ alert('السعر لازم يكون صفر أو أكبر'); return; }
+  const bought=state.purchases.filter(p=>p.item===item).reduce((a,p)=>a+p.qty,0);
+  const sold=state.sales.filter(s=>s.item===item).reduce((a,s)=>a+s.qty,0);
+  const remaining=bought-sold;
+  if(qty>remaining){ if(!confirm(`المتاح من "${item}" في المخزون ${remaining} بس. عايز تكمل البيع برضه؟`)) return; }
+  const total=qty*price;
+  const paid=f.fullyPaid&&f.fullyPaid.checked ? total : (+f.paid.value||0);
+  if(paid<0){ alert('المدفوع لازم يكون صفر أو أكبر'); return; }
+  if(paid>total){ if(!confirm(`المبلغ المدفوع (${fmt(paid)}) أكبر من إجمالي عملية البيع (${fmt(total)}). متأكد؟`)) return; }
+  const buy=avgBuyPrice(item);
+  const profit=(price-buy)*qty;
+  const sid=uid();
+  state.sales.push({id:sid,date:today(),item,qty,sellPrice:price,total,profit,customer});
+  if(paid>0) state.payments.push({id:uid(),date:today(),party:customer,direction:'in',amount:paid,note:'دفعة عند البيع',sourceId:sid});
+  save();
+}
+function addPayment(party,role){
+  const amt=prompt('قيمة الدفعة (جنيه):');
+  if(amt===null) return;
+  const n=+amt;
+  if(!n||n<=0){ alert('اكتب رقم صحيح أكبر من صفر'); return; }
+  state.payments.push({id:uid(),date:today(),party,direction: role==='supplier'?'out':'in',amount:n,note:'تسديد يدوي'});
+  save();
+}
+function addReturn(e){
+  e.preventDefault(); const f=e.target;
+  const type=f.type.value;
+  const qty=+f.qty.value, price=+f.price.value;
+  const item=f.item.value.trim(), party=f.party.value.trim(), note=f.note.value.trim();
+  if(!item||!party){ alert('لازم تكتب اسم الصنف واسم العميل/المورد'); return; }
+  if(!(qty>0)){ alert('الكمية لازم تكون رقم أكبر من صفر'); return; }
+  if(!(price>=0)){ alert('السعر لازم يكون صفر أو أكبر'); return; }
+  if(type==='purchase'){
+    const cur=itemsCatalog().find(i=>i.name===item);
+    const avail=cur?cur.remainingQty:0;
+    if(qty>avail){ if(!confirm(`المتاح من "${item}" في المخزون ${avail} بس، ومنطقيًا مينفعش ترجع للمورد كمية أكبر من كده. عايز تكمل برضه؟`)) return; }
+  } else {
+    const soldToParty=state.sales.filter(s=>s.item===item&&s.customer===party).reduce((a,s)=>a+s.qty,0);
+    const alreadyReturned=state.returns.filter(r=>r.type==='sale'&&r.item===item&&r.party===party).reduce((a,r)=>a+r.qty,0);
+    const availToReturn=soldToParty-alreadyReturned;
+    if(qty>availToReturn){ if(!confirm(`"${party}" اشترى منك ${soldToParty} بس من "${item}" (اترجع منهم ${alreadyReturned} قبل كده). متأكد إنك عايز تسجل مرتجع ${qty}؟`)) return; }
+  }
+  const total=qty*price;
+  const rec={id:uid(),date:today(),type,item,qty,price,total,party,note};
+  if(type==='sale') rec.profit=(price-avgBuyPrice(item))*qty;
+  state.returns.push(rec);
+  save();
+}
+function delRow(list,id){
+  const hasLinkedPayment=state.payments.some(p=>p.sourceId===id);
+  const msg=hasLinkedPayment? 'هيتم حذف الصف ده وأي دفعة مرتبطة بيه تلقائيًا. متأكد؟' : 'هيتم حذف الصف ده نهائيًا. متأكد؟';
+  if(!confirm(msg)) return;
+  state[list]=state[list].filter(r=>r.id!==id);
+  state.payments=state.payments.filter(p=>p.sourceId!==id);
+  save();
+}
+
+// ---------- PDF backup (rendered as styled HTML pages for correct Arabic + branded look) ----------
+const SHOP_NAME='القياتي للملابس';
+const PDF_THEME={card:'#ffffff',ink:'#0f2a26',muted:'#5b6b68',teal:'#0f766e',tealD:'#0b544e',line:'#e3e9e7',danger:'#b91c1c',ok:'#15803d',soft:'#f4f7f6'};
+
+function pdfWatermarkDataUri(){
+  const c=PDF_THEME;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="794" height="1123">
+    <circle cx="397" cy="561" r="300" fill="none" stroke="${c.teal}" stroke-width="3" opacity="0.10"/>
+    <text x="397" y="580" font-family="Tahoma, Arial, sans-serif" font-size="94" font-weight="bold" fill="${c.teal}" opacity="0.10" text-anchor="middle" transform="rotate(-20 397 561)">${SHOP_NAME}</text>
+  </svg>`;
+  return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+}
+
+function pdfPageShell(bodyHtml,pageNum,totalPages){
+  const c=PDF_THEME;
+  return `
+  <div style="width:794px;height:1123px;display:flex;flex-direction:column;background-color:${c.card};background-image:url('${pdfWatermarkDataUri()}');background-repeat:no-repeat;background-position:center center;background-size:794px 1123px;color:${c.ink};direction:rtl;font-family:'Cairo',sans-serif;box-sizing:border-box;padding:54px 50px 46px;">
+    <div style="flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;margin-bottom:22px;border-bottom:2px solid ${c.teal};">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:46px;height:46px;border-radius:50%;background:${c.teal};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;">ق</div>
+        <div>
+          <div style="font-size:19px;font-weight:800;color:${c.tealD};">${SHOP_NAME}</div>
+          <div style="font-size:11px;color:${c.muted};">دفتر حسابات المحل</div>
+        </div>
+      </div>
+      <div style="text-align:left;">
+        <div style="font-size:13px;font-weight:700;color:${c.ink};">تقرير نسخة احتياطية</div>
+        <div style="font-size:11px;color:${c.muted};">${today()}</div>
+      </div>
+    </div>
+    <div style="flex:1 1 auto;overflow:hidden;">${bodyHtml}</div>
+    <div style="flex:0 0 auto;display:flex;justify-content:space-between;font-size:10.5px;color:${c.muted};border-top:1px solid ${c.line};padding-top:8px;margin-top:14px;">
+      <div>${SHOP_NAME} — دفتر حسابات المحل</div>
+      <div>صفحة ${pageNum} من ${totalPages}</div>
+    </div>
+  </div>`;
+}
+
+function pdfSectionTitle(text){
+  return `<div style="font-size:15px;font-weight:800;color:${PDF_THEME.tealD};margin-bottom:14px;">${text}</div>`;
+}
+function pdfTable(headers,rows){
+  const c=PDF_THEME;
+  const th=`padding:7px 6px;text-align:right;font-size:11px;color:#fff;background:${c.teal};font-weight:700;`;
+  const td=`padding:6px 6px;font-size:11px;border-bottom:1px solid ${c.line};color:${c.ink};`;
+  return `<table style="width:100%;border-collapse:collapse;">
+    <thead><tr>${headers.map(h=>`<th style="${th}">${h}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r=>`<tr>${r.map(v=>`<td style="${td}">${v}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table>`;
+}
+function pdfStat(label,val,color){
+  const c=PDF_THEME;
+  return `<div style="flex:1;background:${c.soft};border:1px solid ${c.line};border-radius:12px;padding:14px;text-align:center;">
+    <div style="font-size:11px;color:${c.muted};margin-bottom:6px;">${label}</div>
+    <div style="font-size:18px;font-weight:800;color:${color||c.ink};">${fmt(val)}</div>
+  </div>`;
+}
+
+async function backupPDF(){
+  if(!window.jspdf){ alert('تعذر تحميل مكتبة تصدير الـ PDF، تأكد من اتصالك بالإنترنت وحاول تاني.'); return; }
+  if(!window.html2canvas){ alert('تعذر تحميل مكتبة رسم التقرير، تأكد من اتصالك بالإنترنت وحاول تاني.'); return; }
+  const {jsPDF}=window.jspdf;
+  const c=PDF_THEME;
+  const t=totals();
+  const ROWS_PER_PAGE=16;
+  const bodies=[];
+
+  bodies.push(`
+    ${pdfSectionTitle('ملخص عام')}
+    <div style="display:flex;gap:10px;margin-bottom:10px;">
+      ${pdfStat('إجمالي المشتريات',t.totalPurchases)}
+      ${pdfStat('إجمالي المبيعات',t.totalSales)}
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:10px;">
+      ${pdfStat('إجمالي الربح',t.totalProfit,c.ok)}
+      ${pdfStat('مستحق ليك (عند العملاء)',t.receivable,c.ok)}
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:22px;">
+      ${pdfStat('مستحق عليك (للموردين)',t.payable,c.danger)}
+      ${pdfStat('عدد الأصناف',itemsCatalog().length)}
+    </div>
+    <div style="font-size:12px;color:${c.muted};line-height:2;">
+      عدد عمليات الشراء: ${state.purchases.length}<br>
+      عدد عمليات البيع: ${state.sales.length}<br>
+      عدد المرتجعات: ${state.returns.length}<br>
+      عدد الدفعات المسجلة: ${state.payments.length}
+    </div>`);
+
+  function chunkRows(title,rows,headers,mapFn){
+    if(!rows.length){
+      bodies.push(`${pdfSectionTitle(title)}
+        <div style="text-align:center;color:${c.muted};padding:30px 0;font-size:12px;">لا توجد بيانات</div>`);
+      return;
+    }
+    for(let i=0;i<rows.length;i+=ROWS_PER_PAGE){
+      const slice=rows.slice(i,i+ROWS_PER_PAGE);
+      bodies.push(`${pdfSectionTitle(`${title} (${i+1}–${Math.min(i+ROWS_PER_PAGE,rows.length)} من ${rows.length})`)}
+        ${pdfTable(headers,slice.map(mapFn))}`);
+    }
+  }
+
+  chunkRows('المشتريات', state.purchases.slice().reverse(),
+    ['التاريخ','الصنف','الكمية','سعر الشراء','الإجمالي','المورد'],
+    p=>[p.date,p.item,p.qty,fmt(p.buyPrice),fmt(p.total),p.supplier]);
+  chunkRows('المبيعات', state.sales.slice().reverse(),
+    ['التاريخ','الصنف','الكمية','سعر البيع','الإجمالي','الربح','العميل'],
+    s=>[s.date,s.item,s.qty,fmt(s.sellPrice),fmt(s.total),fmt(s.profit),s.customer]);
+  chunkRows('المرتجعات', state.returns.slice().reverse(),
+    ['التاريخ','النوع','الصنف','الكمية','السعر','الإجمالي','الطرف'],
+    r=>[r.date,r.type==='sale'?'بيع':'شراء',r.item,r.qty,fmt(r.price),fmt(r.total),r.party]);
+  chunkRows('الدفعات', state.payments.slice().reverse(),
+    ['التاريخ','النوع','القيمة','الطرف','ملاحظة'],
+    p=>[p.date,p.direction==='in'?'وارد':'صادر',fmt(p.amount),p.party,p.note||'']);
+
+  if(document.fonts&&document.fonts.ready){ try{ await document.fonts.ready; }catch(e){} }
+
+  try{
+    const doc=new jsPDF('p','pt','a4');
+    const total=bodies.length;
+    for(let i=0;i<total;i++){
+      const holder=document.createElement('div');
+      holder.style.cssText='position:absolute;left:-10000px;top:0;width:794px;height:1123px;';
+      holder.innerHTML=pdfPageShell(bodies[i],i+1,total);
+      document.body.appendChild(holder);
+      let canvas;
+      try{
+        canvas=await html2canvas(holder.firstElementChild,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false});
+      }finally{
+        document.body.removeChild(holder);
+      }
+      if(i>0) doc.addPage();
+      doc.addImage(canvas.toDataURL('image/png'),'PNG',0,0,595.28,841.89);
+    }
+    const blob=doc.output('blob');
+    const filename='shop-backup-'+today()+'.pdf';
+    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click();
+    URL.revokeObjectURL(url);
+  }catch(err){
+    alert('حصل خطأ أثناء إنشاء ملف الـ PDF، جرب تاني. (تفاصيل: '+(err&&err.message?err.message:err)+')');
+  }
+}
+
+
+// ---------- render ----------
+const TABS=[['dash','لوحة التحكم'],['buy','المشتريات'],['sell','المبيعات'],['returns','المرتجعات'],['ledger','العملاء والموردين'],['backup','النسخ الاحتياطي']];
+function render(){
+  const nav=document.getElementById('tabs');
+  nav.innerHTML=TABS.map(([k,l])=>`<button class="${tab===k?'active':''}" onclick="setTab('${k}')">${l}</button>`).join('');
+  const c=document.getElementById('content');
+  if(tab==='dash') c.innerHTML=renderDash();
+  else if(tab==='buy') c.innerHTML=renderBuy();
+  else if(tab==='sell') c.innerHTML=renderSell();
+  else if(tab==='returns') c.innerHTML=renderReturns();
+  else if(tab==='ledger') c.innerHTML=renderLedger();
+  else if(tab==='backup') c.innerHTML=renderBackup();
+  attachForms();
+}
+function setTab(k){ tab=k; render(); }
+function attachForms(){
+  const bf=document.getElementById('buyForm'); if(bf) bf.onsubmit=addPurchase;
+  const sf=document.getElementById('sellForm'); if(sf) sf.onsubmit=addSale;
+  const rf=document.getElementById('returnForm'); if(rf) rf.onsubmit=addReturn;
+}
+
+function renderDash(){
+  const t=totals();
+  const returnsTotal=state.returns.reduce((a,r)=>a+r.total,0);
+  return `<div class="grid">
+    <div class="stat"><span>إجمالي المشتريات</span><b>${fmt(t.totalPurchases)}</b></div>
+    <div class="stat"><span>إجمالي المبيعات</span><b>${fmt(t.totalSales)}</b></div>
+    <div class="stat"><span>إجمالي الربح</span><b>${fmt(t.totalProfit)}</b></div>
+    <div class="stat warn"><span>مستحق ليك (عند العملاء)</span><b>${fmt(t.receivable)}</b></div>
+    <div class="stat danger"><span>مستحق عليك (للموردين)</span><b>${fmt(t.payable)}</b></div>
+    <div class="stat"><span>إجمالي المرتجعات</span><b>${fmt(returnsTotal)}</b></div>
+  </div>
+  <div class="card"><h2>آخر الحركات</h2>${recentList()}</div>`;
+}
+function recentList(){
+  const rows=[
+    ...state.purchases.map(p=>({date:p.date,txt:`شراء: ${p.item} × ${p.qty} من ${p.supplier} = ${fmt(p.total)}`})),
+    ...state.sales.map(s=>({date:s.date,txt:`بيع: ${s.item} × ${s.qty} لـ${s.customer} = ${fmt(s.total)} (ربح ${fmt(s.profit)})`})),
+    ...state.returns.map(r=>({date:r.date,txt:`${r.type==='sale'?'مرتجع بيع':'مرتجع شراء'}: ${r.item} × ${r.qty} ${r.type==='sale'?'من':'لـ'}${r.party} = ${fmt(r.total)}`}))
+  ].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
+  if(!rows.length) return '<div class="emptystate">لسه مفيش حركات</div>';
+  return rows.map(r=>`<div class="rowline"><span>${r.txt}</span><span class="small">${r.date}</span></div>`).join('');
+}
+function renderBuy(){
+  return `<div class="card"><h2>تسجيل عملية شراء</h2>
+  <form id="buyForm">
+    <div><label>الصنف</label><input name="item" list="itemsDL" required></div>
+    <div><label>الكمية بالقطعة</label><input name="qty" type="number" step="any" required></div>
+    <div><label>سعر الشراء للقطعة</label><input name="price" type="number" step="any" required></div>
+    <div><label>المورد</label><input name="supplier" list="supDL" required></div>
+    <div><label>المدفوع الآن (سيبه فاضي أو صفر لو لسه مدفعتش حاجة — هيتسجل كدين على المورد)</label><input name="paid" type="number" step="any" placeholder="0"></div>
+    <div><label>&nbsp;</label><label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);cursor:pointer;font-weight:400;"><input type="checkbox" name="fullyPaid" style="width:auto;"> دفعت المبلغ بالكامل الآن</label></div>
+    <div><button class="btn" type="submit">حفظ الشراء</button></div>
+  </form>
+  <datalist id="itemsDL">${[...new Set(state.purchases.map(p=>p.item))].map(i=>`<option value="${i}">`).join('')}</datalist>
+  <datalist id="supDL">${[...new Set(state.purchases.map(p=>p.supplier))].map(i=>`<option value="${i}">`).join('')}</datalist>
+  </div>
+  <div class="card"><h2>سجل المشتريات</h2>${buyTable()}</div>`;
+}
+function buyTable(){
+  if(!state.purchases.length) return '<div class="emptystate">لسه مفيش مشتريات</div>';
+  return `<div class="tablewrap"><table><thead><tr><th>التاريخ</th><th>الصنف</th><th>كمية</th><th>سعر</th><th>الإجمالي</th><th>المورد</th><th></th></tr></thead><tbody>
+  ${state.purchases.slice().reverse().map(p=>`<tr><td>${p.date}</td><td>${p.item}</td><td>${p.qty}</td><td>${fmt(p.buyPrice)}</td><td>${fmt(p.total)}</td><td>${p.supplier}</td><td><button class="btn ghost" onclick="delRow('purchases','${p.id}')">حذف</button></td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+function renderSell(){
+  return `<div class="card"><h2>تسجيل عملية بيع</h2>
+  <form id="sellForm">
+    <div><label>الصنف</label><input name="item" list="itemsDL2" required></div>
+    <div><label>الكمية بالقطعة</label><input name="qty" type="number" step="any" required></div>
+    <div><label>سعر البيع للقطعة</label><input name="price" type="number" step="any" required></div>
+    <div><label>العميل</label><input name="customer" list="cusDL" required></div>
+    <div><label>المدفوع الآن (سيبه فاضي أو صفر لو لسه ماخدتش فلوس — هيتسجل كدين على العميل)</label><input name="paid" type="number" step="any" placeholder="0"></div>
+    <div><label>&nbsp;</label><label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);cursor:pointer;font-weight:400;"><input type="checkbox" name="fullyPaid" style="width:auto;"> استلمت المبلغ بالكامل الآن</label></div>
+    <div><button class="btn" type="submit">حفظ البيع</button></div>
+  </form>
+  <datalist id="itemsDL2">${[...new Set(state.purchases.map(p=>p.item))].map(i=>`<option value="${i}">`).join('')}</datalist>
+  <datalist id="cusDL">${[...new Set(state.sales.map(s=>s.customer))].map(i=>`<option value="${i}">`).join('')}</datalist>
+  </div>
+  <div class="card"><h2>المخزون المتبقي لكل صنف</h2>${stockTable()}</div>
+  <div class="card"><h2>سجل المبيعات</h2>${sellTable()}</div>`;
+}
+function stockTable(){
+  const items=itemsCatalog();
+  if(!items.length) return '<div class="emptystate">لسه مفيش أصناف</div>';
+  return `<table><thead><tr><th>الصنف</th><th>الكمية المتبقية</th></tr></thead><tbody>
+  ${items.map(i=>`<tr><td>${i.name}</td><td>${i.remainingQty<0?`<span class="tag pos">${i.remainingQty} (تحقق من البيانات)</span>`:i.remainingQty}</td></tr>`).join('')}</tbody></table>`;
+}
+function sellTable(){
+  if(!state.sales.length) return '<div class="emptystate">لسه مفيش مبيعات</div>';
+  return `<div class="tablewrap"><table><thead><tr><th>التاريخ</th><th>الصنف</th><th>كمية</th><th>سعر</th><th>الإجمالي</th><th>الربح</th><th>العميل</th><th></th></tr></thead><tbody>
+  ${state.sales.slice().reverse().map(s=>`<tr><td>${s.date}</td><td>${s.item}</td><td>${s.qty}</td><td>${fmt(s.sellPrice)}</td><td>${fmt(s.total)}</td><td>${fmt(s.profit)}</td><td>${s.customer}</td><td><button class="btn ghost" onclick="delRow('sales','${s.id}')">حذف</button></td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+function renderReturns(){
+  const allItems=[...new Set([...state.purchases.map(p=>p.item),...state.sales.map(s=>s.item)])];
+  const allParties_=[...new Set([...state.purchases.map(p=>p.supplier),...state.sales.map(s=>s.customer)])];
+  return `<div class="card"><h2>تسجيل مرتجع</h2>
+  <p class="small">مرتجع البيع بيرجّع البضاعة للمخزون ويقلل اللي العميل مديون بيه. مرتجع الشراء بيقلل المخزون ويقلل اللي إحنا مديونين بيه للمورد.</p>
+  <form id="returnForm">
+    <div><label>نوع المرتجع</label>
+      <select name="type" required>
+        <option value="sale">مرتجع بيع (من عميل)</option>
+        <option value="purchase">مرتجع شراء (لمورد)</option>
+      </select>
+    </div>
+    <div><label>الصنف</label><input name="item" list="itemsDL3" required></div>
+    <div><label>الكمية بالقطعة</label><input name="qty" type="number" step="any" required></div>
+    <div><label>السعر للقطعة</label><input name="price" type="number" step="any" required></div>
+    <div><label>اسم العميل/المورد</label><input name="party" list="partyDL3" required></div>
+    <div><label>ملاحظة (اختياري)</label><input name="note" placeholder="سبب الإرجاع مثلاً"></div>
+    <div><button class="btn" type="submit">حفظ المرتجع</button></div>
+  </form>
+  <datalist id="itemsDL3">${allItems.map(i=>`<option value="${i}">`).join('')}</datalist>
+  <datalist id="partyDL3">${allParties_.map(i=>`<option value="${i}">`).join('')}</datalist>
+  </div>
+  <div class="card"><h2>سجل المرتجعات</h2>${returnsTable()}</div>`;
+}
+function returnsTable(){
+  if(!state.returns.length) return '<div class="emptystate">لسه مفيش مرتجعات</div>';
+  return `<div class="tablewrap"><table><thead><tr><th>التاريخ</th><th>النوع</th><th>الصنف</th><th>كمية</th><th>سعر</th><th>الإجمالي</th><th>الطرف</th><th></th></tr></thead><tbody>
+  ${state.returns.slice().reverse().map(r=>`<tr><td>${r.date}</td><td>${r.type==='sale'?'مرتجع بيع':'مرتجع شراء'}</td><td>${r.item}</td><td>${r.qty}</td><td>${fmt(r.price)}</td><td>${fmt(r.total)}</td><td>${r.party}</td><td><button class="btn ghost" onclick="delRow('returns','${r.id}')">حذف</button></td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+function renderLedger(){
+  const parties=allParties();
+  if(!parties.length) return '<div class="card"><div class="emptystate">لسه مفيش عملاء أو موردين</div></div>';
+  return `<div class="card"><h2>العملاء والموردين</h2>
+  <div class="tablewrap"><table><thead><tr><th>الاسم</th><th>النوع</th><th>الرصيد</th><th></th></tr></thead><tbody>
+  ${parties.map(p=>{
+    const cls=p.balance>0?'pos':(p.balance<0?'neg':'zero');
+    const label=p.role==='supplier'?(p.balance>0?'عليك له':'له فايض'):(p.balance>0?'ليك عليه':'دفع زيادة');
+    return `<tr><td>${p.name}</td><td>${p.role==='supplier'?'مورد':'عميل'}</td><td><span class="tag ${cls}">${fmt(Math.abs(p.balance))} - ${label}</span></td><td><button class="btn ghost" onclick="addPayment('${p.name.replace(/'/g,"\\'")}','${p.role}')">تسجيل دفعة</button></td></tr>`;
+  }).join('')}
+  </tbody></table></div></div>`;
+}
+function renderBackup(){
+  const connected=sbConfigured();
+  return `<div class="card"><h2>النسخ الاحتياطي</h2>
+  <p class="small">قبل أي تعديل مهم أو كل شوية، اضغط الزرار ده عشان تاخد نسخة PDF بكل بياناتك (المشتريات، المبيعات، الديون) تحسبًا لأي خلل.</p>
+  <button class="btn secondary" onclick="backupPDF()">⬇️ تنزيل نسخة PDF الآن</button>
+  </div>
+  <div class="card"><h2>المزامنة السحابية (Supabase)</h2>
+  <p class="small">لما توصّل الدفتر بحساب Supabase، أي جهاز (موبايل أو لابتوب) يدخل بنفس كلمة المرور هيشوف نفس البيانات تلقائيًا من غير أي نقل يدوي.</p>
+  <p class="small">${connected? '✅ الجهاز ده متصل بإعدادات سحابية.' : '⚪ الجهاز ده لسه مش متصل بأي حساب سحابي.'}</p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <button class="btn" onclick="configureCloud()">${connected?'⚙️ تعديل إعدادات السحابة':'☁️ ربط بحساب Supabase'}</button>
+    ${connected?'<button class="btn ghost" onclick="disconnectCloud()">فصل السحابة عن هذا الجهاز</button>':''}
+  </div>
+  <p class="small" style="margin-top:10px;">تنبيه أمان: النظام ده بيربط بياناتك بكلمة المرور بس (مفيش تسجيل دخول حقيقي)، فاختار كلمة مرور مش سهل حد يخمّنها، ومتشاركش رابط ومفتاح Supabase مع حد مش موثوق فيه.</p>
+  </div>
+  <div class="card"><h2>مسح كل البيانات</h2>
+  <p class="small">دي عملية نهائية مفيش رجوع فيها — خد نسخة PDF الأول لو مش متأكد.</p>
+  <button class="btn ghost" style="color:var(--danger);border-color:var(--danger)" onclick="resetAllData()">🗑️ مسح كل البيانات نهائيًا</button>
+  </div>`;
+}
+
+// ---------- boot ----------
+(async function(){
+  await initStorage();
+  if(getPw()) document.getElementById('gate').style.display='flex';
+  else document.getElementById('gate').querySelector('p').textContent='حدد كلمة مرور جديدة لأول مرة تدخل بيها الدفتر:';
+})();
+</script>
+</body>
+</html>
